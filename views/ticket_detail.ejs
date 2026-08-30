@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Ticket #<%= ticket.id %></title>
+    <style>
+        body { background: #FAF3E8; font-family: sans-serif; color: #3A2E28; max-width: 460px; margin: 40px auto; }
+        .card { background: #FFFDF9; border: 0.5px solid #E4D8C4; border-radius: 12px; padding: 20px; }
+        .field { margin-bottom: 14px; }
+        .label { font-size: 11px; color: #8A7A68; display: block; margin-bottom: 4px; }
+        select { width: 100%; box-sizing: border-box; border: 1px solid #E4D8C4; border-radius: 8px; padding: 9px 12px; font-size: 14px; background: #FFFDF9; margin-bottom: 14px; }
+        button { width: 100%; background: #D98E58; color: #FAF3E8; border: none; border-radius: 10px; padding: 10px; font-size: 14px; font-weight: bold; }
+        a.back { display: inline-block; margin-bottom: 16px; color: #8A7A68; text-decoration: none; font-size: 13px; }
+        .guest-tag { font-size: 10px; color: #8A7A68; background: #F0E4D3; padding: 2px 6px; border-radius: 6px; margin-left: 4px; }
+        .email-line { font-size: 13px; color: #8A7A68; }
+    </style>
+</head>
+<body>
+    <a class="back" href="/staff">&larr; Back to tickets</a>
+    <h2>#<%= ticket.id %> <%= ticket.subject %></h2>
+
+    <div class="card">
+        <div class="field">
+            <span class="label">Submitted By</span>
+            <%= ticket.submittedBy %>
+            <% if (!ticket.customerId) { %> <span class="guest-tag">Guest</span><% } %>
+            <% if (customerEmail) { %><br><span class="email-line"><%= customerEmail %></span><% } %>
+        </div>
+        <div class="field">
+            <span class="label">Priority</span>
+            <%= ticket.priority %>
+        </div>
+        <div class="field">
+            <span class="label">Category</span>
+            <%= ticket.category %>
+        </div>
+        <div class="field">
+            <span class="label">Description</span>
+            <%= ticket.description %>
+        </div>
+        <div class="field">
+            <span class="label">Opened</span>
+            <%= ticket.openedAt.toLocaleString() %>
+        </div>
+        <% if (ticket.resolvedAt) { %>
+        <div class="field">
+            <span class="label">Resolved</span>
+            <%= ticket.resolvedAt.toLocaleString() %>
+        </div>
+        <% } %>
+
+        <form method="POST" action="/ticket/<%= ticket.id %>">
+            <label class="label">Status</label>
+            <select name="status">
+                <option <%= ticket.status === "Open" ? "selected" : "" %>>Open</option>
+                <option <%= ticket.status === "In Progress" ? "selected" : "" %>>In Progress</option>
+                <option <%= ticket.status === "Resolved" ? "selected" : "" %>>Resolved</option>
+            </select>
+            <button type="submit">Save changes</button>
+        </form>
+    </div>
+</body>
+</html>

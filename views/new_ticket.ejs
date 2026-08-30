@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Groundwork - Submit a ticket</title>
+    <style>
+        a.back { display: inline-block; margin-bottom: 16px; color: #8A7A68; text-decoration: none; font-size: 13px; }
+        body { background: #FAF3E8; font-family: sans-serif; color: #3A2E28; max-width: 420px; margin: 40px auto; }
+        input, textarea, select { width: 100%; box-sizing: border-box; border: 1px solid #E4D8C4; border-radius: 8px; padding: 9px 12px; font-size: 14px; margin-bottom: 14px; background: #FFFDF9; }
+        label { font-size: 12px; color: #8A7A68; display: block; margin-bottom: 6px; }
+        button { width: 100%; background: #D98E58; color: #FAF3E8; border: none; border-radius: 10px; padding: 10px; font-size: 14px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <a class="back" href="/">&larr; Back to home</a>
+    <h2>New ticket</h2>
+    <form method="POST" action="/new">
+        <label>Subject</label>
+        <input type="text" name="subject" required>
+
+        <label>Description</label>
+        <textarea name="description" rows="3" required></textarea>
+
+        <label>Priority</label>
+        <select name="priority">
+            <option>Low</option>
+            <option selected>Medium</option>
+            <option>High</option>
+        </select>
+
+        <label>Category</label>
+        <select name="category">
+            <option>Hardware</option>
+            <option selected>Software</option>
+            <option>Network</option>
+            <option>Account access</option>
+        </select>
+
+        <button type="submit">Submit ticket</button>
+    </form>
+</body>
+</html>

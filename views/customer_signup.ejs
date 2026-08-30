@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Groundwork — Sign up</title>
+    <style>
+        body { background: #FAF3E8; font-family: sans-serif; color: #3A2E28; max-width: 360px; margin: 80px auto; }
+        a.back { display: inline-block; margin-bottom: 16px; color: #8A7A68; text-decoration: none; font-size: 13px; }
+        input { width: 100%; box-sizing: border-box; border: 1px solid #E4D8C4; border-radius: 8px; padding: 9px 12px; font-size: 14px; margin-bottom: 14px; background: #FFFDF9; }
+        label { font-size: 12px; color: #8A7A68; display: block; margin-bottom: 6px; }
+        button { width: 100%; background: #D98E58; color: #FAF3E8; border: none; border-radius: 10px; padding: 10px; font-size: 14px; font-weight: bold; }
+        .error { color: #B5651D; font-size: 13px; margin-bottom: 14px; }
+        .switch { text-align: center; font-size: 13px; color: #8A7A68; margin-top: 16px; }
+    </style>
+</head>
+<body>
+    <a class="back" href="/new">&larr; Back</a>
+    <h2>Sign up</h2>
+    <% if (typeof error !== "undefined") { %>
+        <div class="error"><%= error %></div>
+    <% } %>
+    <form method="POST" action="/account/signup">
+        <label>Full name</label>
+        <input type="text" name="name" required>
+
+        <label>Email</label>
+        <input type="email" name="email" required>
+
+        <label>Password</label>
+        <input type="password" name="password" required>
+
+        <button type="submit">Sign up</button>
+    </form>
+    <div class="switch">Already have an account? <a href="/account/login">Sign in</a></div>
+</body>
+</html>
