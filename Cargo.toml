@@ -8,7 +8,7 @@ axum = "0.7"
 tokio = { version = "1", features = ["full"] }
 tower-http = { version = "0.5", features = ["fs"] }
 tera = "1"
-sqlx = { version = "0.7", features = ["runtime-tokio", "sqlite"] }
+sqlx = { version = "0.7", features = ["runtime-tokio", "sqlite", "macros", "migrate"] }
 bcrypt = "0.15"
 chrono = "0.4"
 serde = { version = "1", features = ["derive"] }
