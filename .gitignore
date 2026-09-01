@@ -2,3 +2,7 @@ node_modules/
 tickets.db
 .env
 *.log
+
+# Rust
+/target
+*.db
