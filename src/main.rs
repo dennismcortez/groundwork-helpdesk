@@ -1,8 +1,9 @@
 mod db;
 mod session;
+mod sla;
 
 use axum::{
-    extract::{Form, State},
+    extract::{Form, Path, State},
     response::{Html, Redirect, Response, IntoResponse},
     routing::{get, post},
     Router,
@@ -27,21 +28,27 @@ struct LoginForm {
     password: String,
 }
 
+#[derive(Deserialize)]
+struct TicketUpdateForm {
+    status: String,
+}
+
 fn render_template(
     state: &AppState,
     template_name: &str,
     context: &Context,
-) -> Result<Html<String>, tera::Error> {
-    state.templates.render(template_name, context).map(Html)
+) -> Result<Html<String>, (axum::http::StatusCode, String)> {
+    state
+        .templates
+        .render(template_name, context)
+        .map(Html)
+        .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))
 }
 
 async fn login_page(State(state): State<AppState>) -> Result<Html<String>, (axum::http::StatusCode, String)> {
     let mut context = Context::new();
     context.insert("error", &None::<String>);
-    match render_template(&state, "login.html", &context) {
-        Ok(html) => Ok(html),
-        Err(e) => Err((axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string())),
-    }
+    render_template(&state, "login.html", &context)
 }
 
 async fn login_submit(
@@ -57,7 +64,7 @@ async fn login_submit(
     .bind(&form.username)
     .fetch_optional(pool)
     .await
-    .map_err(|e| {
+    .map_err(|_| {
         let mut context = Context::new();
         context.insert("error", &"Database error");
         let body = state.templates.render("login.html", &context).unwrap();
@@ -124,11 +131,177 @@ async fn logout(
     response
 }
 
+// Home page handler
+async fn home_page(State(state): State<AppState>) -> Result<Html<String>, (axum::http::StatusCode, String)> {
+    let pool = &state.pool;
+
+    let tickets: Vec<(i64, String, String, String, String, String, Option<i64>, String, Option<String>)> =
+        sqlx::query_as(
+            "SELECT id, subject, description, priority, category, status, customer_id, opened_at, resolved_at FROM tickets"
+        )
+        .fetch_all(pool)
+        .await
+        .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    let total_count = tickets.len();
+    let resolved_count = tickets.iter().filter(|t| t.5 == "Resolved").count();
+    let open_count = total_count - resolved_count;
+
+    let circumference = 2.0 * std::f64::consts::PI * 45.0;
+    let resolved_percent = if total_count > 0 { (resolved_count as f64 / total_count as f64) * 100.0 } else { 0.0 };
+    let open_percent = if total_count > 0 { (open_count as f64 / total_count as f64) * 100.0 } else { 0.0 };
+    let resolved_arc = (resolved_percent / 100.0) * circumference;
+    let open_arc = (open_percent / 100.0) * circumference;
+    let resolved_arc_neg = -resolved_arc;
+
+    let mut context = Context::new();
+    context.insert("total_count", &total_count);
+    context.insert("resolved_count", &resolved_count);
+    context.insert("open_count", &open_count);
+    context.insert("circumference", &circumference);
+    context.insert("resolved_arc", &resolved_arc);
+    context.insert("resolved_arc_neg", &resolved_arc_neg);
+    context.insert("open_arc", &open_arc);
+
+    render_template(&state, "home.html", &context)
+}
+
+// Staff dashboard (ticket list)
 async fn staff_dashboard(State(state): State<AppState>, jar: CookieJar) -> Response {
     if let Some(cookie) = jar.get("session") {
         let token = cookie.value();
         if let Ok(Some(_)) = session::get_staff_user_id(&state.pool, token).await {
-            return Html("<h1>Staff dashboard (coming soon)</h1>").into_response();
+            let tickets: Vec<(i64, String, String, String, String, String, Option<i64>, String, Option<String>)> =
+                match sqlx::query_as(
+                    "SELECT id, subject, description, priority, category, status, customer_id, opened_at, resolved_at FROM tickets ORDER BY opened_at DESC"
+                )
+                .fetch_all(&state.pool)
+                .await
+                {
+                    Ok(rows) => rows,
+                    Err(_) => return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response(),
+                };
+
+            let mut context = Context::new();
+            let mut ticket_views = Vec::new();
+            for t in &tickets {
+                let sla = sla::get_sla_status(&t.3, &t.5, &t.7);
+                ticket_views.push(serde_json::json!({
+                    "id": t.0,
+                    "subject": t.1,
+                    "description": t.2,
+                    "priority": t.3,
+                    "category": t.4,
+                    "status": t.5,
+                    "customer_id": t.6,
+                    "opened_at": t.7,
+                    "resolved_at": t.8,
+                    "sla": {
+                        "label": sla.label,
+                        "color": sla.color,
+                        "bg": sla.bg,
+                    }
+                }));
+            }
+            context.insert("tickets", &ticket_views);
+            return match render_template(&state, "tickets.html", &context) {
+                Ok(html) => html.into_response(),
+                Err((status, msg)) => (status, msg).into_response(),
+            };
+        }
+    }
+    Redirect::to("/login").into_response()
+}
+
+// Ticket detail page
+async fn ticket_detail(
+    State(state): State<AppState>,
+    jar: CookieJar,
+    Path(id): Path<i64>,
+) -> Response {
+    if let Some(cookie) = jar.get("session") {
+        let token = cookie.value();
+        if let Ok(Some(_)) = session::get_staff_user_id(&state.pool, token).await {
+            let ticket: Option<(i64, String, String, String, String, String, Option<i64>, String, Option<String>)> =
+                sqlx::query_as(
+                    "SELECT id, subject, description, priority, category, status, customer_id, opened_at, resolved_at FROM tickets WHERE id = ?"
+                )
+                .bind(id)
+                .fetch_optional(&state.pool)
+                .await
+                .unwrap_or(None);
+
+            if ticket.is_none() {
+                return Redirect::to("/staff").into_response();
+            }
+            let t = ticket.unwrap();
+
+            let mut customer_email = None;
+            if let Some(customer_id) = t.6 {
+                if let Ok(Some((email,))) = sqlx::query_as::<_, (String,)>("SELECT email FROM customers WHERE id = ?")
+                    .bind(customer_id)
+                    .fetch_optional(&state.pool)
+                    .await
+                {
+                    customer_email = Some(email);
+                }
+            }
+
+            let sla_status = sla::get_sla_status(&t.3, &t.5, &t.7);
+            let mut context = Context::new();
+            context.insert("ticket", &serde_json::json!({
+                "id": t.0,
+                "subject": t.1,
+                "description": t.2,
+                "priority": t.3,
+                "category": t.4,
+                "status": t.5,
+                "customer_id": t.6,
+                "opened_at": t.7,
+                "resolved_at": t.8,
+            }));
+            context.insert("customer_email", &customer_email);
+            context.insert("sla", &serde_json::json!({
+                "label": sla_status.label,
+                "color": sla_status.color,
+                "bg": sla_status.bg,
+            }));
+
+            return match render_template(&state, "ticket_detail.html", &context) {
+                Ok(html) => html.into_response(),
+                Err((status, msg)) => (status, msg).into_response(),
+            };
+        }
+    }
+    Redirect::to("/login").into_response()
+}
+
+// Handle ticket status update
+async fn ticket_update(
+    State(state): State<AppState>,
+    jar: CookieJar,
+    Path(id): Path<i64>,
+    Form(form): Form<TicketUpdateForm>,
+) -> Response {
+    if let Some(cookie) = jar.get("session") {
+        let token = cookie.value();
+        if let Ok(Some(_)) = session::get_staff_user_id(&state.pool, token).await {
+            let resolved_at = if form.status == "Resolved" {
+                Some(chrono::Utc::now().naive_utc().format("%Y-%m-%d %H:%M:%S").to_string())
+            } else {
+                None
+            };
+
+            let result = sqlx::query("UPDATE tickets SET status = ?, resolved_at = ? WHERE id = ?")
+                .bind(&form.status)
+                .bind(&resolved_at)
+                .bind(id)
+                .execute(&state.pool)
+                .await;
+
+            if result.is_ok() {
+                return Redirect::to(&format!("/ticket/{}", id)).into_response();
+            }
         }
     }
     Redirect::to("/login").into_response()
@@ -137,14 +310,15 @@ async fn staff_dashboard(State(state): State<AppState>, jar: CookieJar) -> Respo
 #[tokio::main]
 async fn main() {
     let pool = db::init_pool().await.expect("Failed to initialize database");
-    let templates = Tera::new("templates/**/*").expect("Failed to load templates");
+    let templates = Tera::new("templates/**/*.html").expect("Failed to load templates");
     let state = AppState { pool, templates };
 
     let app = Router::new()
-        .route("/", get(|| async { "Hello from Rust!" }))
+        .route("/", get(home_page))
         .route("/login", get(login_page).post(login_submit))
         .route("/logout", get(logout))
         .route("/staff", get(staff_dashboard))
+        .route("/ticket/:id", get(ticket_detail).post(ticket_update))
         .fallback_service(ServeDir::new("public"))
         .with_state(state);
 

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Groundwork — Tickets</title>
+    <style>
+        body { background: #FAF3E8; font-family: sans-serif; color: #3A2E28; margin: 0; }
+        .page-wrap { max-width: 880px; margin: 0 auto; padding: 40px 20px; }
+        .site-logo { display: inline-block; font-size: 17px; font-weight: bold; color:#D98E58; text-decoration: none; margin-bottom: 20px; }
+        a.back { display: block; margin-bottom: 16px; color: #8A7A68; text-decoration:none; font-size: 13px; }
+        h2 { font-size: 26px; margin: 0 0 16px 0; }
+        a.button { display: inline-block; background: #D98E58; color: #FAF3E8; text-decoration: none; padding: 10px 16px; border-radius: 10px; font-size: 14px; margin-bottom: 24px; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; background: #FFFDF9; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(58,46,40,0.06); }
+        th, td { text-align: left; padding: 12px 16px; font-size: 14px; border-bottom:1px solid #F0E4D3; }
+        th { font-size: 11px; color: #8A7A68; text-transform: uppercase; }
+        table a { color: #9CAF88; text-decoration: none; }
+        table a:visited { color: #6B7B4F; }
+        table a:hover { text-decoration: underline; }
+        .guest-tag { font-size: 10px; color: #8A7A68; background: #F0E4D3; padding: 2px 6px; border-radius: 6px; margin-left: 4px; }
+        .sla-pill { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
+    </style>
+</head>
+<body>
+    <div class="page-wrap">
+        <a href="/" class="site-logo">Groundwork</a>
+        <a class="back" href="/">&larr; Back to home</a>
+        <h2>Ticket Queue</h2>
+        <a class="button" href="/new">+ New ticket</a>
+        <table>
+            <tr><th>Subject</th><th>Submitted By</th><th>Priority</th><th>Category</th><th>Status</th><th>SLA</th></tr>
+            {% for ticket in tickets %}
+            <tr>
+                <td><a href="/ticket/{{ ticket.id }}">#{{ ticket.id }} {{ ticket.subject }}</a></td>
+                <td>{{ ticket.submitted_by }}{% if not ticket.customer_id %} <span class="guest-tag">Guest</span>{% endif %}</td>
+                <td>{{ ticket.priority }}</td>
+                <td>{{ ticket.category }}</td>
+                <td style="color: {% if ticket.status == 'Resolved' %}#6B7B4F{% else %}#3A2E28{% endif %}; font-weight: {% if ticket.status == 'Resolved' %}bold{% else %}normal{% endif %};">{{ ticket.status }}</td>
+                <td><span class="sla-pill" style="color: {{ ticket.sla.color }}; background: {{ ticket.sla.bg }};">{{ ticket.sla.label }}</span></td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+</body>
+</html>
