@@ -5,11 +5,11 @@ mod sla;
 use axum::{
     extract::{Form, Path, State},
     response::{Html, Redirect, Response, IntoResponse},
-    routing::{get, post},
+    routing:: get,
     Router,
 };
 use axum_extra::extract::cookie::CookieJar;
-use bcrypt::verify;
+use bcrypt::{hash, verify};
 use serde::Deserialize;
 use sqlx::SqlitePool;
 use std::net::SocketAddr;
@@ -33,6 +33,36 @@ struct TicketUpdateForm {
     status: String,
 }
 
+#[derive(Deserialize)]
+struct GuestTicketForm {
+    name: String,
+    subject: String,
+    description: String,
+    priority: String,
+    category: String,
+}
+
+#[derive(Deserialize)]
+struct AccountTicketForm {
+    subject: String,
+    description: String,
+    priority: String,
+    category: String,
+}
+
+#[derive(Deserialize)]
+struct CustomerSignupForm {
+    name: String,
+    email: String,
+    password: String,
+}
+
+#[derive(Deserialize)]
+struct CustomerLoginForm {
+    email: String,
+    password: String,
+}
+
 fn render_template(
     state: &AppState,
     template_name: &str,
@@ -45,6 +75,8 @@ fn render_template(
         .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))
 }
 
+// ===== Staff auth handlers =====
+
 async fn login_page(State(state): State<AppState>) -> Result<Html<String>, (axum::http::StatusCode, String)> {
     let mut context = Context::new();
     context.insert("error", &None::<String>);
@@ -53,7 +85,7 @@ async fn login_page(State(state): State<AppState>) -> Result<Html<String>, (axum
 
 async fn login_submit(
     State(state): State<AppState>,
-    jar: CookieJar,
+    _jar: CookieJar,
     Form(form): Form<LoginForm>,
 ) -> Result<Response, Response> {
     let pool = &state.pool;
@@ -131,7 +163,274 @@ async fn logout(
     response
 }
 
-// Home page handler
+// ===== Customer auth handlers =====
+
+async fn customer_signup_page(State(state): State<AppState>) -> Result<Html<String>, (axum::http::StatusCode, String)> {
+    let mut context = Context::new();
+    context.insert("error", &None::<String>);
+    render_template(&state, "customer_signup.html", &context)
+}
+
+async fn customer_signup_submit(
+    State(state): State<AppState>,
+    _jar: CookieJar,
+    Form(form): Form<CustomerSignupForm>,
+) -> Result<Response, Response> {
+    let pool = &state.pool;
+
+    let existing = sqlx::query_as::<_, (i64,)>("SELECT id FROM customers WHERE email = ?")
+        .bind(&form.email)
+        .fetch_optional(pool)
+        .await
+        .map_err(|_| {
+            let mut context = Context::new();
+            context.insert("error", &"Database error");
+            let body = state.templates.render("customer_signup.html", &context).unwrap();
+            Response::builder()
+                .status(500)
+                .header("content-type", "text/html")
+                .body(axum::body::Body::from(body))
+                .unwrap()
+        })?;
+
+    if existing.is_some() {
+        let mut context = Context::new();
+        context.insert("error", &"An account with that email already exists.");
+        let body = state.templates.render("customer_signup.html", &context).unwrap();
+        return Err(Response::builder()
+            .status(200)
+            .header("content-type", "text/html")
+            .body(axum::body::Body::from(body))
+            .unwrap());
+    }
+
+    let hashed_password = hash(&form.password, 10).unwrap();
+    let result = sqlx::query("INSERT INTO customers (name, email, password) VALUES (?, ?, ?)")
+        .bind(&form.name)
+        .bind(&form.email)
+        .bind(&hashed_password)
+        .execute(pool)
+        .await
+        .map_err(|_| {
+            let mut context = Context::new();
+            context.insert("error", &"Signup failed");
+            let body = state.templates.render("customer_signup.html", &context).unwrap();
+            Response::builder()
+                .status(500)
+                .header("content-type", "text/html")
+                .body(axum::body::Body::from(body))
+                .unwrap()
+        })?;
+
+    let customer_id = result.last_insert_rowid();
+    let token = session::create_customer_session(pool, customer_id)
+        .await
+        .map_err(|_| {
+            let mut context = Context::new();
+            context.insert("error", &"Session creation failed");
+            let body = state.templates.render("customer_signup.html", &context).unwrap();
+            Response::builder()
+                .status(500)
+                .header("content-type", "text/html")
+                .body(axum::body::Body::from(body))
+                .unwrap()
+        })?;
+
+    let mut response = Redirect::to("/new/account").into_response();
+    session::set_session_cookie(&mut response, &token);
+    Ok(response)
+}
+
+async fn customer_login_page(State(state): State<AppState>) -> Result<Html<String>, (axum::http::StatusCode, String)> {
+    let mut context = Context::new();
+    context.insert("error", &None::<String>);
+    render_template(&state, "customer_login.html", &context)
+}
+
+async fn customer_login_submit(
+    State(state): State<AppState>,
+    _jar: CookieJar,
+    Form(form): Form<CustomerLoginForm>,
+) -> Result<Response, Response> {
+    let pool = &state.pool;
+
+    let customer = sqlx::query_as::<_, (i64, String, String, String)>(
+        "SELECT id, name, email, password FROM customers WHERE email = ?"
+    )
+    .bind(&form.email)
+    .fetch_optional(pool)
+    .await
+    .map_err(|_| {
+        let mut context = Context::new();
+        context.insert("error", &"Database error");
+        let body = state.templates.render("customer_login.html", &context).unwrap();
+        Response::builder()
+            .status(500)
+            .header("content-type", "text/html")
+            .body(axum::body::Body::from(body))
+            .unwrap()
+    })?;
+
+    let customer = match customer {
+        Some(c) => c,
+        None => {
+            let mut context = Context::new();
+            context.insert("error", &"Invalid email or password");
+            let body = state.templates.render("customer_login.html", &context).unwrap();
+            return Err(Response::builder()
+                .status(200)
+                .header("content-type", "text/html")
+                .body(axum::body::Body::from(body))
+                .unwrap());
+        }
+    };
+
+    if !verify(&form.password, &customer.3).unwrap_or(false) {
+        let mut context = Context::new();
+        context.insert("error", &"Invalid email or password");
+        let body = state.templates.render("customer_login.html", &context).unwrap();
+        return Err(Response::builder()
+            .status(200)
+            .header("content-type", "text/html")
+            .body(axum::body::Body::from(body))
+            .unwrap());
+    }
+
+    let token = session::create_customer_session(pool, customer.0)
+        .await
+        .map_err(|_| {
+            let mut context = Context::new();
+            context.insert("error", &"Session creation failed");
+            let body = state.templates.render("customer_login.html", &context).unwrap();
+            Response::builder()
+                .status(500)
+                .header("content-type", "text/html")
+                .body(axum::body::Body::from(body))
+                .unwrap()
+        })?;
+
+    let mut response = Redirect::to("/new/account").into_response();
+    session::set_session_cookie(&mut response, &token);
+    Ok(response)
+}
+
+async fn customer_logout(
+    State(state): State<AppState>,
+    jar: CookieJar,
+) -> Response {
+    if let Some(cookie) = jar.get("session") {
+        let token = cookie.value();
+        let _ = session::destroy_session(&state.pool, token).await;
+    }
+    let mut response = Redirect::to("/").into_response();
+    session::remove_session_cookie(&mut response);
+    response
+}
+
+// ===== Ticket submission =====
+
+async fn new_choice_page(State(state): State<AppState>) -> Result<Html<String>, (axum::http::StatusCode, String)> {
+    let context = Context::new();
+    render_template(&state, "new_choice.html", &context)
+}
+
+async fn new_guest_page(State(state): State<AppState>) -> Result<Html<String>, (axum::http::StatusCode, String)> {
+    let context = Context::new();
+    render_template(&state, "new_guest.html", &context)
+}
+
+async fn new_guest_submit(
+    State(state): State<AppState>,
+    Form(form): Form<GuestTicketForm>,
+) -> Result<Html<String>, (axum::http::StatusCode, String)> {
+    let pool = &state.pool;
+    let result = sqlx::query(
+        "INSERT INTO tickets (subject, description, priority, category, submitted_by, customer_id) VALUES (?, ?, ?, ?, ?, NULL)"
+    )
+    .bind(&form.subject)
+    .bind(&form.description)
+    .bind(&form.priority)
+    .bind(&form.category)
+    .bind(&form.name)
+    .execute(pool)
+    .await
+    .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    let ticket_id = result.last_insert_rowid();
+    let mut context = Context::new();
+    context.insert("ticket_id", &ticket_id);
+    context.insert("subject", &form.subject);
+    render_template(&state, "ticket_confirmation.html", &context)
+}
+
+async fn new_account_page(
+    State(state): State<AppState>,
+    jar: CookieJar,
+) -> Result<Html<String>, (axum::http::StatusCode, String)> {
+    if let Some(cookie) = jar.get("session") {
+        let token = cookie.value();
+        if let Ok(Some(customer_id)) = session::get_customer_id(&state.pool, token).await {
+            let customer = sqlx::query_as::<_, (i64, String, String, String)>(
+                "SELECT id, name, email, password FROM customers WHERE id = ?"
+            )
+            .bind(customer_id)
+            .fetch_optional(&state.pool)
+            .await
+            .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+            if let Some(customer) = customer {
+                let mut context = Context::new();
+                context.insert("customer", &serde_json::json!({
+                    "name": customer.1,
+                }));
+                return render_template(&state, "new_account.html", &context);
+            }
+        }
+    }
+    Ok(Html("<script>window.location='/account/login'</script>".to_string()))
+}
+
+async fn new_account_submit(
+    State(state): State<AppState>,
+    jar: CookieJar,
+    Form(form): Form<AccountTicketForm>,
+) -> Result<Html<String>, (axum::http::StatusCode, String)> {
+    if let Some(cookie) = jar.get("session") {
+        let token = cookie.value();
+        if let Ok(Some(customer_id)) = session::get_customer_id(&state.pool, token).await {
+            let customer = sqlx::query_as::<_, (String,)>("SELECT name FROM customers WHERE id = ?")
+                .bind(customer_id)
+                .fetch_optional(&state.pool)
+                .await
+                .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+            if let Some((name,)) = customer {
+                let result = sqlx::query(
+                    "INSERT INTO tickets (subject, description, priority, category, submitted_by, customer_id) VALUES (?, ?, ?, ?, ?, ?)"
+                )
+                .bind(&form.subject)
+                .bind(&form.description)
+                .bind(&form.priority)
+                .bind(&form.category)
+                .bind(&name)
+                .bind(customer_id)
+                .execute(&state.pool)
+                .await
+                .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+                let ticket_id = result.last_insert_rowid();
+                let mut context = Context::new();
+                context.insert("ticket_id", &ticket_id);
+                context.insert("subject", &form.subject);
+                return render_template(&state, "ticket_confirmation.html", &context);
+            }
+        }
+    }
+    Ok(Html("<script>window.location='/account/login'</script>".to_string()))
+}
+
+// ===== Home and staff area =====
+
 async fn home_page(State(state): State<AppState>) -> Result<Html<String>, (axum::http::StatusCode, String)> {
     let pool = &state.pool;
 
@@ -160,13 +459,12 @@ async fn home_page(State(state): State<AppState>) -> Result<Html<String>, (axum:
     context.insert("open_count", &open_count);
     context.insert("circumference", &circumference);
     context.insert("resolved_arc", &resolved_arc);
-    context.insert("resolved_arc_neg", &resolved_arc_neg);
     context.insert("open_arc", &open_arc);
+    context.insert("resolved_arc_neg", &resolved_arc_neg);
 
     render_template(&state, "home.html", &context)
 }
 
-// Staff dashboard (ticket list)
 async fn staff_dashboard(State(state): State<AppState>, jar: CookieJar) -> Response {
     if let Some(cookie) = jar.get("session") {
         let token = cookie.value();
@@ -213,7 +511,6 @@ async fn staff_dashboard(State(state): State<AppState>, jar: CookieJar) -> Respo
     Redirect::to("/login").into_response()
 }
 
-// Ticket detail page
 async fn ticket_detail(
     State(state): State<AppState>,
     jar: CookieJar,
@@ -276,7 +573,6 @@ async fn ticket_detail(
     Redirect::to("/login").into_response()
 }
 
-// Handle ticket status update
 async fn ticket_update(
     State(state): State<AppState>,
     jar: CookieJar,
@@ -319,6 +615,12 @@ async fn main() {
         .route("/logout", get(logout))
         .route("/staff", get(staff_dashboard))
         .route("/ticket/:id", get(ticket_detail).post(ticket_update))
+        .route("/new", get(new_choice_page))
+        .route("/new/guest", get(new_guest_page).post(new_guest_submit))
+        .route("/new/account", get(new_account_page).post(new_account_submit))
+        .route("/account/signup", get(customer_signup_page).post(customer_signup_submit))
+        .route("/account/login", get(customer_login_page).post(customer_login_submit))
+        .route("/account/logout", get(customer_logout))
         .fallback_service(ServeDir::new("public"))
         .with_state(state);
 

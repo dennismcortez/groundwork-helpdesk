@@ -69,3 +69,26 @@ pub fn remove_session_cookie(response: &mut Response) {
         cookie.to_string().parse().unwrap(),
     );
 }
+
+pub async fn create_customer_session(
+    pool: &SqlitePool,
+    customer_id: i64,
+) -> Result<String, sqlx::Error> {
+    let token = generate_token();
+    sqlx::query(
+        "INSERT INTO sessions (token, user_id, customer_id, created_at) VALUES (?, NULL, ?, CURRENT_TIMESTAMP)"
+    )
+    .bind(&token)
+    .bind(customer_id)
+    .execute(pool)
+    .await?;
+    Ok(token)
+}
+
+pub async fn get_customer_id(pool: &SqlitePool, token: &str) -> Result<Option<i64>, sqlx::Error> {
+    let row: Option<(i64,)> = sqlx::query_as("SELECT customer_id FROM sessions WHERE token = ?")
+        .bind(token)
+        .fetch_optional(pool)
+        .await?;
+    Ok(row.map(|r| r.0))
+}

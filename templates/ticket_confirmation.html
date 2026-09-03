@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Groundwork — Ticket submitted</title>
+    <style>
+        body { background: #FAF3E8; font-family: sans-serif; color: #3A2E28; margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        .checkmark { width: 64px; height: 64px; border-radius: 50%; background: #6B7B4F; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; }
+        .checkmark svg { width: 30px; height: 30px; }
+        h2 { font-size: 26px; margin: 0 0 8px 0; }
+        .ticket-line { color: #8A7A68; font-size: 15px; margin-bottom: 4px; }
+        .subject-line { font-weight: bold; font-size: 17px; margin-bottom: 24px; max-width: 420px; }
+        .note { font-size: 13px; color: #8A7A68; max-width: 380px; margin-bottom: 32px; line-height: 1.5; }
+        a.home-btn { background: #D98E58; color: #FAF3E8; text-decoration: none; padding: 12px 28px; border-radius: 10px; font-weight: bold; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="checkmark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#FAF3E8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="4 12 9 17 20 6"></polyline>
+        </svg>
+    </div>
+    <h2>Ticket Submitted</h2>
+    <div class="ticket-line">Ticket #{{ ticket_id }}</div>
+    <div class="subject-line">{{ subject }}</div>
+    <p class="note">Your ticket has been received and staff will begin reviewing it shortly. You can track its status by contacting IT support with your ticket number.</p>
+    <a class="home-btn" href="/">Back to home</a>
+</body>
+</html>

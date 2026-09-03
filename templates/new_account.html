@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Groundwork — Submit a ticket</title>
+    <style>
+        body { background: #FAF3E8; font-family: sans-serif; color: #3A2E28; margin: 0; }
+        .page-wrap { max-width: 420px; margin: 0 auto; padding: 40px 20px; }
+        .site-logo { display: inline-block; font-size: 17px; font-weight: bold; color:#D98E58; text-decoration: none; margin-bottom: 20px; }
+        a.back { display: block; margin-bottom: 16px; color: #8A7A68; text-decoration:none; font-size: 13px; }
+        .card { background: #FFFDF9; border: 1px solid #E4D8C4; border-radius: 16px; padding: 28px 32px; box-shadow: 0 4px 24px rgba(58,46,40,0.06); }
+        h2 { font-size: 24px; margin: 0 0 8px 0; }
+        input, textarea, select { width: 100%; box-sizing: border-box; border: 1px solid #E4D8C4; border-radius: 8px; padding: 10px 12px; font-size: 14px; margin-bottom: 14px; background: #FFFDF9; }
+        label { font-size: 12px; color: #8A7A68; display: block; margin-bottom: 6px; font-weight: 600; }
+        button { width: 100%; background: #D98E58; color: #FAF3E8; border: none; border-radius: 10px; padding: 12px; font-size: 14px; font-weight: bold; }
+        .note { font-size: 12px; color: #8A7A68; margin-bottom: 20px; }
+        .signed-in-as { font-size: 13px; color: #6B7B4F; margin-bottom: 12px; }
+        .signed-in-as a { color: #8A7A68; }
+    </style>
+</head>
+<body>
+    <div class="page-wrap">
+        <a href="/" class="site-logo">Groundwork</a>
+        <a class="back" href="/">&larr; Back to home</a>
+        <div class="card">
+            <h2>New ticket</h2>
+            <p class="signed-in-as">Signed in as <strong>{{ customer.name }}</strong> &middot; <a href="/account/logout">Not you?</a></p>
+            <p class="note">Priority defaults to Medium but can be adjusted based on urgency.</p>
+            <form method="POST" action="/new/account">
+                <label>Subject</label>
+                <input type="text" name="subject" required>
+                <label>Description</label>
+                <textarea name="description" rows="3" required></textarea>
+                <label>Priority</label>
+                <select name="priority">
+                    <option>Low</option>
+                    <option selected>Medium</option>
+                    <option>High</option>
+                </select>
+                <label>Category</label>
+                <select name="category">
+                    <option>Hardware</option>
+                    <option selected>Software</option>
+                    <option>Network</option>
+                    <option>Account access</option>
+                </select>
+                <button type="submit">Submit ticket</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

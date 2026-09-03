@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Groundwork — Submit a ticket</title>
+    <style>
+        body { background: #FAF3E8; font-family: sans-serif; color: #3A2E28; margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .site-logo { position: absolute; top: 24px; left: 40px; font-size: 17px; font-weight: bold; color: #D98E58; text-decoration: none; }
+        a.back { position: absolute; top: 26px; right: 40px; color: #8A7A68; text-decoration: none; font-size: 13px; }
+        h2 { margin-bottom: 28px; font-size: 24px; }
+        .panel { background: #FFFDF9; border: 1px solid #E4D8C4; border-radius: 16px; padding: 32px 36px; width: 320px; text-align: center; box-shadow: 0 4px 24px rgba(58,46,40,0.06); }
+        .signin-btn { display: block; background: #D98E58; color: #FAF3E8; text-decoration: none; padding: 12px; border-radius: 10px; font-weight: bold; font-size: 15px; margin-bottom: 12px; }
+        .signup-link { display: block; font-size: 13px; color: #8A7A68; text-decoration: none; margin-bottom: 24px; }
+        .divider { display: flex; align-items: center; color: #C4B5A0; font-size: 12px; margin: 20px 0; }
+        .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: #E4D8C4; }
+        .divider span { padding: 0 12px; }
+        .guest-link { display: block; color: #6B5B4F; text-decoration: underline; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <a href="/" class="site-logo">Groundwork</a>
+    <a class="back" href="/">&larr; Back to home</a>
+    <h2>Submit a Ticket</h2>
+    <div class="panel">
+        <a class="signin-btn" href="/account/login">Sign In</a>
+        <a class="signup-link" href="/account/signup">Don't have an account? Sign up</a>
+        <div class="divider"><span>or</span></div>
+        <a class="guest-link" href="/new/guest">Continue as Guest</a>
+    </div>
+</body>
+</html>

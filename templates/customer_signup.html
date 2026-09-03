@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Groundwork — Sign up</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: sans-serif; }
+        .split-wrap { display: flex; min-height: 100vh; }
+        .split-left { flex: 1 1 50%; background: #FAF3E8; color: #3A2E28; display: flex; flex-direction: column; justify-content: center; padding: 60px; }
+        .form-inner { max-width: 340px; margin: 0 auto; width: 100%; }
+        .site-logo { display: inline-block; font-size: 17px; font-weight: bold; color:#D98E58; text-decoration: none; margin-bottom: 20px; }
+        a.back { display: block; margin-bottom: 16px; color: #8A7A68; text-decoration:none; font-size: 13px; }
+        h2 { font-size: 26px; margin: 0 0 20px 0; }
+        input { width: 100%; box-sizing: border-box; border: 1px solid #E4D8C4; border-radius: 8px; padding: 10px 12px; font-size: 14px; margin-bottom: 14px; background: #FFFDF9; }
+        label { font-size: 12px; color: #8A7A68; display: block; margin-bottom: 6px; font-weight: 600; }
+        button { width: 100%; background: #D98E58; color: #FAF3E8; border: none; border-radius: 10px; padding: 12px; font-size: 14px; font-weight: bold; }
+        .error { color: #B5651D; font-size: 13px; margin-bottom: 14px; }
+        .switch { text-align: center; font-size: 13px; color: #8A7A68; margin-top: 16px; }
+        .split-right { flex: 1 1 50%; position: relative; overflow: hidden; display: flex; align-items: flex-end; }
+        .split-bg { position: absolute; inset: 0; background-image: url('/images/forest.jpg'); background-size: cover; background-position: center; }
+        .split-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(30,24,20,0.65), rgba(30,24,20,0.1)); }
+        .split-quote { position: relative; z-index: 1; color: #FAF3E8; padding: 48px; font-size: 16px; line-height: 1.6; max-width: 400px; }
+        @media (max-width: 900px) { .split-right { display: none; } }
+    </style>
+</head>
+<body>
+    <div class="split-wrap">
+        <div class="split-left">
+            <div class="form-inner">
+                <a href="/" class="site-logo">Groundwork</a>
+                <a class="back" href="/new">&larr; Back</a>
+                <h2>Sign up</h2>
+                {% if error %}
+                    <div class="error">{{ error }}</div>
+                {% endif %}
+                <form method="POST" action="/account/signup">
+                    <label>Full name</label>
+                    <input type="text" name="name" required>
+                    <label>Email</label>
+                    <input type="email" name="email" required>
+                    <label>Password</label>
+                    <input type="password" name="password" required>
+                    <button type="submit">Sign up</button>
+                </form>
+                <div class="switch">Already have an account? <a href="/account/login">Sign in</a></div>
+            </div>
+        </div>
+        <div class="split-right">
+            <div class="split-bg"></div>
+            <div class="split-overlay"></div>
+            <div class="split-quote">"Create an account to track your tickets and speed up support."</div>
+        </div>
+    </div>
+</body>
+</html>
