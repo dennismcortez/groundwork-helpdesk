@@ -1,6 +1,7 @@
 const express = require("express");
 const { db } = require("./db");
 const { tickets, users, customers } = require("./db/schema");
+const { assignTicket, getTechnicianName } = require("./db/technicians");
 const { desc, eq } = require("drizzle-orm");
 const session = require("express-session");
 const bcrypt = require("bcryptjs");
@@ -27,6 +28,29 @@ function requireCustomer(req, res, next) {
     return res.redirect("/account/login");
   }
   next();
+}
+
+// ----- SLA calculation -----
+
+const SLA_HOURS = { High: 4, Medium: 24, Low: 72 };
+
+function getSlaStatus(ticket) {
+  if (ticket.status === "Resolved") {
+    return { label: "Resolved", color: "#4A6626", bg: "#DCE7C8" };
+  }
+
+  const targetHours = SLA_HOURS[ticket.priority] || 24;
+  const elapsedMs = Date.now() - new Date(ticket.openedAt).getTime();
+  const elapsedHours = elapsedMs / (1000 * 60 * 60);
+  const percentUsed = elapsedHours / targetHours;
+
+  if (percentUsed < 0.5) {
+    return { label: "On track", color: "#8A4A12", bg: "#F7DCC0" };
+  } else if (percentUsed < 0.9) {
+    return { label: "Due soon", color: "#8A5A0A", bg: "#F6D9B0" };
+  } else {
+    return { label: "Overdue", color: "#8A2E1E", bg: "#F2C6BC" };
+  }
 }
 
 // ----- Staff auth -----
@@ -132,7 +156,7 @@ app.get("/new/guest", (req, res) => {
 });
 
 app.post("/new/guest", (req, res) => {
-  db.insert(tickets).values({
+  const result = db.insert(tickets).values({
     subject: req.body.subject,
     description: req.body.description,
     priority: req.body.priority,
@@ -140,7 +164,10 @@ app.post("/new/guest", (req, res) => {
     submittedBy: req.body.name,
     customerId: null,
   }).run();
-  res.redirect("/");
+
+  assignTicket(result.lastInsertRowid, req.body.category);
+
+  res.render("ticket_confirmation", { ticketId: result.lastInsertRowid, subject: req.body.subject });
 });
 
 app.get("/new/account", requireCustomer, (req, res) => {
@@ -151,7 +178,7 @@ app.get("/new/account", requireCustomer, (req, res) => {
 app.post("/new/account", requireCustomer, (req, res) => {
   const customer = db.select().from(customers).where(eq(customers.id, req.session.customerId)).get();
 
-  db.insert(tickets).values({
+  const result = db.insert(tickets).values({
     subject: req.body.subject,
     description: req.body.description,
     priority: req.body.priority,
@@ -159,14 +186,22 @@ app.post("/new/account", requireCustomer, (req, res) => {
     submittedBy: customer.name,
     customerId: customer.id,
   }).run();
-  res.redirect("/");
+
+  assignTicket(result.lastInsertRowid, req.body.category);
+
+  res.render("ticket_confirmation", { ticketId: result.lastInsertRowid, subject: req.body.subject });
 });
 
 // ----- Staff area -----
 
 app.get("/staff", requireLogin, (req, res) => {
   const allTickets = db.select().from(tickets).orderBy(desc(tickets.openedAt)).all();
-  res.render("tickets", { tickets: allTickets });
+  const ticketsWithSla = allTickets.map(t => ({
+    ...t,
+    sla: getSlaStatus(t),
+    assignee: getTechnicianName(t.assignedTo),
+  }));
+  res.render("tickets", { tickets: ticketsWithSla });
 });
 
 app.get("/ticket/:id", requireLogin, (req, res) => {
@@ -178,7 +213,10 @@ app.get("/ticket/:id", requireLogin, (req, res) => {
     customerEmail = customer ? customer.email : null;
   }
 
-  res.render("ticket_detail", { ticket: ticket, customerEmail: customerEmail });
+  const sla = getSlaStatus(ticket);
+  const assignee = getTechnicianName(ticket.assignedTo);
+
+  res.render("ticket_detail", { ticket, customerEmail, sla, assignee });
 });
 
 app.post("/ticket/:id", requireLogin, (req, res) => {
