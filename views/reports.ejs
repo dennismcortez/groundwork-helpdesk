@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Groundwork — Reports</title>
+    <!-- Load Chart.js from the web -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background: #FAF3E8; font-family: sans-serif; color: #3A2E28; margin: 0; padding: 40px; }
+		.header { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; max-width: 900px; margin: 0 auto 30px auto; }        
+		.site-logo { font-size: 17px; font-weight: bold; color:#D98E58; text-decoration: none; }
+        h2 { justify-self: center; font-size: 26px; margin: 0; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 900px; margin: 0 auto; }
+        .card { background: #FFFDF9; border: 1px solid #E4D8C4; border-radius: 16px; padding: 20px; box-shadow: 0 4px 24px rgba(58,46,40,0.06); }
+        .full-width { grid-column: span 2; }
+        .stat-box { display: flex; justify-content: space-around; text-align: center; margin-top: 20px; }
+        .stat-number { font-size: 32px; font-weight: bold; color: #6B7B4F; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="/staff" class="site-logo">← Back to Queue</a>
+        <h2>Reports & Analytics</h2>
+        <div></div>
+    </div>
+
+    <div class="grid">
+        <!-- SLA Card -->
+        <div class="card full-width">
+            <h3>SLA Compliance (Resolved Tickets)</h3>
+            <div class="stat-box">
+                <div>
+                    <div class="stat-number" style="color: #6B7B4F;"><%= slaStats.onTime %></div>
+                    <div>Resolved On Time</div>
+                </div>
+                <div>
+                    <div class="stat-number" style="color: #8A2E1E;"><%= slaStats.overdue %></div>
+                    <div>Resolved Overdue</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Category Chart -->
+        <div class="card">
+            <h3>Tickets by Category</h3>
+            <canvas id="categoryChart"></canvas>
+        </div>
+
+        <!-- Priority Chart -->
+        <div class="card">
+            <h3>Tickets by Priority</h3>
+            <canvas id="priorityChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // Pass the EJS data to JavaScript
+        const categoryData = <%- JSON.stringify(categoryStats) %>;
+        const priorityData = <%- JSON.stringify(priorityStats) %>;
+
+        // Render Category Chart
+        new Chart(document.getElementById('categoryChart'), {
+            type: 'bar',
+            data: {
+                labels: categoryData.map(d => d.category),
+                datasets: [{
+                    label: 'Tickets',
+                    data: categoryData.map(d => d.count),
+                    backgroundColor: '#D98E58'
+                }]
+            }
+        });
+
+        // Render Priority Chart
+        new Chart(document.getElementById('priorityChart'), {
+            type: 'doughnut',
+            data: {
+                labels: priorityData.map(d => d.priority),
+                datasets: [{
+                    data: priorityData.map(d => d.count),
+                    backgroundColor: ['#8A2E1E', '#B5651D', '#6B7B4F'] // Red, Orange, Green
+                }]
+            }
+        });
+    </script>
+</body>
+</html>

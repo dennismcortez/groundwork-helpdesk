@@ -2,7 +2,7 @@ const express = require("express");
 const { db } = require("./db");
 const { tickets, users, customers } = require("./db/schema");
 const { assignTicket, getTechnicianName } = require("./db/technicians");
-const { desc, eq } = require("drizzle-orm");
+const { desc, eq, sql } = require("drizzle-orm");
 const session = require("express-session");
 const bcrypt = require("bcryptjs");
 
@@ -14,6 +14,7 @@ app.use(session({
   secret: "helpdesk-secret-key",
   resave: false,
   saveUninitialized: false,
+  cookie: { maxAge: 1000 * 60 * 30 } // Session expires after 30 minutes
 }));
 
 function requireLogin(req, res, next) {
@@ -118,6 +119,17 @@ app.get("/account/logout", (req, res) => {
   req.session.destroy(() => {
     res.redirect("/");
   });
+});
+
+app.get("/account/history", requireCustomer, (req, res) => {
+  // requireCustomer guarantees they are logged in.
+  // We fetch ONLY the tickets that belong to this specific customer's ID.
+  const myTickets = db.select().from(tickets)
+    .where(eq(tickets.customerId, req.session.customerId))
+    .orderBy(desc(tickets.openedAt))
+    .all();
+
+  res.render("my_tickets", { tickets: myTickets, customerId: req.session.customerId });
 });
 
 // ----- Home -----
@@ -233,6 +245,45 @@ app.post("/ticket/:id", requireLogin, (req, res) => {
     .where(eq(tickets.id, Number(req.params.id)))
     .run();
   res.redirect("/ticket/" + req.params.id);
+});
+
+// ============================================================
+// REPORTING DASHBOARD
+// ============================================================
+
+app.get("/reports", requireLogin, (req, res) => {
+  // 1. Tickets by Category
+  const categoryStats = db.select({
+    category: tickets.category,
+    count: sql`count(*)`
+  }).from(tickets).groupBy(tickets.category).all();
+
+  // 2. Tickets by Priority
+  const priorityStats = db.select({
+    priority: tickets.priority,
+    count: sql`count(*)`
+  }).from(tickets).groupBy(tickets.priority).all();
+
+  // 3. SLA Performance (Resolved vs Overdue)
+  // We calculate this by checking if resolvedAt is greater than openedAt + target hours
+  const allTickets = db.select().from(tickets).all();
+  let onTime = 0;
+  let overdue = 0;
+  
+  allTickets.forEach(t => {
+    if (t.status === "Resolved" && t.resolvedAt) {
+      const hoursToResolve = (t.resolvedAt - t.openedAt) / (1000 * 60 * 60);
+      const target = SLA_HOURS[t.priority] || 24;
+      if (hoursToResolve <= target) onTime++;
+      else overdue++;
+    }
+  });
+
+  res.render("reports", {
+    categoryStats,
+    priorityStats,
+    slaStats: { onTime, overdue }
+  });
 });
 
 app.listen(3000, () => {

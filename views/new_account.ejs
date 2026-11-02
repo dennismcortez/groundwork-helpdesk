@@ -37,7 +37,10 @@
                 <a class="back" href="/">&larr; Back to home</a>
                 <h2>New ticket</h2>
                 <p class="signed-in-as">Signed in as <strong><%= customer.name %></strong> &middot; <a href="/account/logout">Not you?</a></p>
-                <p class="note">Priority defaults to Medium but can be adjusted based on urgency.</p>
+                <div style="margin-bottom: 20px;">
+					<a href="/account/history" style="color: #D98E58; font-weight: bold; text-decoration: none;">View My Ticket History &rarr;</a>
+				</div>
+				<p class="note">Priority defaults to Medium but can be adjusted based on urgency.</p>
                 <form method="POST" action="/new/account">
                     <label>Subject</label>
                     <input type="text" name="subject" required>

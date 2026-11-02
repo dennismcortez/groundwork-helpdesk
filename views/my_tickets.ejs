@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Groundwork — My Tickets</title>
+    <style>
+        body { background: #FAF3E8; font-family: sans-serif; color: #3A2E28; margin: 0; padding: 40px; }
+        .page-wrap { max-width: 800px; margin: 0 auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .site-logo { font-size: 17px; font-weight: bold; color:#D98E58; text-decoration: none; }
+        h2 { font-size: 26px; margin: 0 0 16px 0; }
+        a.button { display: inline-block; background: #D98E58; color: #FAF3E8; text-decoration: none; padding: 10px 16px; border-radius: 10px; font-size: 14px; margin-bottom: 24px; font-weight: bold; }
+        
+        table { width: 100%; border-collapse: collapse; background: #FFFDF9; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(58,46,40,0.06); }
+        th, td { text-align: left; padding: 12px 16px; font-size: 14px; border-bottom: 1px solid #F0E4D3; }
+        th { font-size: 11px; color: #8A7A68; text-transform: uppercase; }
+        
+        .status { font-weight: bold; }
+        .status.Open { color: #D98E58; }
+        .status.In-Progress { color: #B5651D; }
+        .status.Resolved { color: #6B7B4F; }
+        
+        .empty-state { text-align: center; padding: 40px; background: #FFFDF9; border-radius: 16px; border: 1px solid #E4D8C4; }
+    </style>
+</head>
+<body>
+    <div class="page-wrap">
+        <div class="header">
+            <a href="/" class="site-logo">Groundwork</a>
+            <a href="/account/logout" style="color: #8A7A68; text-decoration: none; font-size: 13px;">Log Out</a>
+        </div>
+
+        <a href="/" style="display: inline-block; margin-bottom: 16px; color: #8A7A68; text-decoration: none; font-size: 13px;">&larr; Back to Home</a>
+        <h2>My Ticket History</h2>
+        
+        <% if (tickets.length === 0) { %>
+            <div class="empty-state">
+                <p>You haven't submitted any tickets yet.</p>
+                <a href="/new/account" class="button" style="margin-top: 16px;">Submit a Ticket</a>
+            </div>
+        <% } else { %>
+            <a class="button" href="/new/account">+ New ticket</a>
+            <table>
+                <tr>
+                    <th>Subject</th>
+                    <th>Category</th>
+                    <th>Priority</th>
+                    <th>Date Submitted</th>
+                    <th>Status</th>
+                </tr>
+                <% tickets.forEach(function(ticket) { %>
+                <tr>
+                    <td>#<%= ticket.id %> <%= ticket.subject %></td>
+                    <td><%= ticket.category %></td>
+                    <td><%= ticket.priority %></td>
+                    <td><%= ticket.openedAt.toLocaleDateString() %></td>
+                    <td class="status <%= ticket.status.replace(' ', '-') %>"><%= ticket.status %></td>
+                </tr>
+                <% }); %>
+            </table>
+        <% } %>
+    </div>
+</body>
+</html>
